@@ -39,9 +39,9 @@ food_items([Item6]) :-
 % all items.
 % Restriction: must be recursive, but may not define any auxiliary procedures.
 items_total1([], 0).
-items_total1([order_item(_, _, Units, Price) | Rest], Total) :-
+items_total1([order_item(_, _, N, P)|Rest], Total) :-
     items_total1(Rest, Subtotal),
-    Total is Subtotal + Units * Price.
+    Total is Subtotal + N*P.
 
 
 :-begin_tests(items_total1).
@@ -73,14 +73,13 @@ test(all) :-
 %
 % Hint: Implement as a wrapper around an auxiliary procedure items_total2/3
 % which uses an accumulator.
-
 items_total2(Items, Total) :-
     items_total2(Items, 0, Total).
 
 items_total2([], Acc, Acc).
-items_total2([order_item(_, _, Units, Price) | Rest], Acc, Total) :-
-    NewAcc is Acc + Units * Price,
-    items_total2(Rest, NewAcc, Total).
+items_total2([order_item(_, _, N, P)|Rest], Acc, Total) :-
+    NextAcc is Acc + N*P,
+    items_total2(Rest, NextAcc, Total).
 
 
 
@@ -110,20 +109,22 @@ test(all) :-
 % Restriction: Must be implemented using recursion.
 %
 % Hint: X \= Y succeeds iff X = Y fails.
-
 items_with_category([], _, []).
-items_with_category([Item|Rest], Category, CategoryItems) :-
-    Item = order_item(_, ItemCategory, _),
-    (
-        ItemCategory = Category ->
-        CategoryItems = [Item|OtherItems]
-        ;
-        CategoryItems = OtherItems
-    ),
-    items_with_category(Rest, Category, OtherItems).
+items_with_category([order_item(ItemId, Category, _, _) | Rest], Category, [order_item(ItemId, Category, _, _) | CategoryRest]) :- 
+    !,
+    items_with_category(Rest, Category, CategoryRest).
+items_with_category([_ | Rest], Category, CategoryRest) :- 
+    items_with_category(Rest, Category, CategoryRest).
+
+cookware_items(CategoryItems) :- 
+    items_with_category(Items, cookware, CategoryItems).
+apparel_items(CategoryItems) :- 
+    items_with_category(Items, apparel, CategoryItems).
+food_items(CategoryItems) :- 
+    items_with_category(Items, food, CategoryItems).
 
 
-:-begin_tests(items_with_category)
+:-begin_tests(items_with_category).
 test(cookware, nondet) :-
     order_items(Items),
     items_with_category(Items, cookware, CookwareItems),
@@ -144,20 +145,18 @@ test(unknown, nondet) :-
 
 % #4: 15-points
 % expensive_item_skus(Items, Price, ExpensiveSKUs): Match ExpensiveSKUs
-% with the SKUs of those order-items in Items having unit-price > Price
-
+% with the SKUs of those order-items in Items having unit-price > Price.
 expensive_item_skus([], _, []).
-expensive_item_skus([Item|Rest], Price, ExpensiveSKUs) :-
-    Item = order_item(SKU, _, PricePerUnit),
-    (
-        PricePerUnit > Price ->
-        ExpensiveSKUs = [SKU|OtherSKUs]
-        ;
-        ExpensiveSKUs = OtherSKUs
-    ),
-    expensive_item_skus(Rest, Price, OtherSKUs).
 
-:-begin_tests(expensive_item_skus)
+expensive_item_skus([order_item(SKU, _, _, UnitPrice)|RestItems], Price, [SKU|RestSKUs]) :-
+    UnitPrice > Price,
+    expensive_item_skus(RestItems, Price, RestSKUs).
+
+expensive_item_skus([_|RestItems], Price, ExpensiveSKUs) :-
+    expensive_item_skus(RestItems, Price, ExpensiveSKUs).
+
+
+:-begin_tests(expensive_item_skus).
 test(gt20, nondet) :-
     order_items(Items),
     expensive_item_skus(Items, 20, [ap273]).
@@ -179,11 +178,9 @@ test(all, nondet) :-
 % Restriction: must be defined using a single rule, cannot use recursion.
 %
 % Hint: use member/2
-
 expensive_item_sku(Items, Price, SKU) :-
     member(order_item(SKU, _, _, UnitPrice), Items),
     UnitPrice > Price.
-
 
 :-begin_tests(expensive_item_sku).
 test(gt20, all(Z = [ap273])) :-
@@ -236,9 +233,7 @@ test(all, all(Z = [cw123, cw126, ap723, cw127, ap273, fd825])) :-
 % a left plus expression accumulator.  Initialize accumulator to an
 % invalid plus expression and special-case that initial accumulator
 % in the base cases.
-
 :- style_check(-singleton).
-
 left_plus(Atomic, Atomic) :- atomic(Atomic).
 left_plus(Left + Atomic, Result) :-
     atomic(Atomic),
